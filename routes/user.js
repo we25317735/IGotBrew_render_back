@@ -469,7 +469,7 @@ router.post('/coupon', (req, res) => {
   // user_coupon (pl) 和 coupon (p)
   const query = `
     SELECT p.*, pl.quantity
-FROM user_coupon pl
+FROM coupon pl
 JOIN coupon p ON pl.coupon_id = p.id
 WHERE pl.user_id = ?
   `
