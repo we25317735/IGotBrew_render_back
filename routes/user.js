@@ -8,9 +8,17 @@ import { fileURLToPath } from 'url'
 import bcrypt from 'bcrypt' //密碼解析
 import { v1 as uuidv1 } from 'uuid'
 
+// 對資料庫操作
+import sequelize from '#configs/db.js'
+const { User, Order_list, User_coupon, Coupon } = sequelize.models
+
 // email 寄信
 import transporter from '#configs/mail.js'
 import 'dotenv/config.js'
+
+// 中介軟體，會員登入或確認時使用(cookies 的解構和 id 取得身分)
+import authenticate from '#middlewares/authenticate.js'
+import { getIdParam } from '#db-helpers/db-tool.js' // 檢查空物件, 轉換req.params為數字
 
 const jsonModdleware = express.json() // 接收資料的中間件
 
@@ -36,28 +44,28 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage }) //儲存圖片時執行 storage
 
-// 普通的 id 抓資料
-router.post('/', jsonModdleware, (req, res) => {
-  const { id, name, email } = req.body
-  console.log('搜尋到的使用者 ', id, name, email) // 交易訂單
+// 普通的 id 抓資料(考慮移除)
+// router.post('/', jsonModdleware, (req, res) => {
+//   const { id, name, email } = req.body
+//   console.log('搜尋到的使用者 ', id, name, email) // 交易訂單
 
-  const query = `SELECT * FROM user WHERE id = ?`
+//   const query = `SELECT * FROM user WHERE id = ?`
 
-  // 使用參數化查詢來防止 SQL 注入
-  connection.query(query, [id], (err, result) => {
-    if (err) {
-      console.error('查詢資料庫失敗:', err)
-      return res.status(500).json({ message: '查詢資料庫失敗' })
-    }
+//   // 使用參數化查詢來防止 SQL 注入
+//   connection.query(query, [id], (err, result) => {
+//     if (err) {
+//       console.error('查詢資料庫失敗:', err)
+//       return res.status(500).json({ message: '查詢資料庫失敗' })
+//     }
 
-    if (result.length === 0) {
-      // 如果沒有資料被找到，說明沒有符合條件的記錄
-      return res.status(404).json({ message: '沒有找到符合條件的記錄' })
-    }
+//     if (result.length === 0) {
+//       // 如果沒有資料被找到，說明沒有符合條件的記錄
+//       return res.status(404).json({ message: '沒有找到符合條件的記錄' })
+//     }
 
-    return res.json(result) // 回傳查詢結果
-  })
-})
+//     return res.json(result) // 回傳查詢結果
+//   })
+// })
 
 // 登入(原用戶登入)
 router.post('/login', (req, res) => {
@@ -241,238 +249,48 @@ router.post('/register', jsonModdleware, (req, res) => {
   })
 })
 
-// 用戶資料變更(jsonModdleware 才能收到前端資料)
-router.put('/updata', jsonModdleware, (req, res) => {
-  let { id, name, phone, email, gender, birthday } = req.body
-  // console.log('ghjkl ', id, name, phone, email, gender, birthday)
+// 用戶資料修改(id 之外其他隨意新增)
+router.put('/updata', jsonModdleware, async (req, res) => {
+  const { id, name, phone, email, address, birthday, img } = req.body
+  // console.log('後端收到: ', id, name, phone, email, address, birthday, img)
 
-  // 更新資料庫中對應的 user 資料
-  const query = `
-    UPDATE user
-    SET name = ?, phone = ?, email = ?, gender = ?, birthday = ? 
-    WHERE id = ?
-  `
-  connection.query(query, [name, phone, email, gender, birthday, id], (err) => {
-    if (err) {
-      console.error('更新資料庫失敗:', err)
-      return res.status(500).json({ message: '更新資料庫失敗' })
-    }
-    return res.json({ message: '更改成功' })
-  })
-})
-
-// ben老師的登入狀態檢查(保留)
-// router.get('/status', checkToken, (req, res) => {
-
-//   let secretKey = 'xxx'
-
-//   const {
-//     id,
-//     name,
-//     birthday,
-//     img,
-//     email,
-//     account,
-//     created_at,
-//     valid,
-//     gender,
-//     phone: user,
-//     permissions,
-//     updated_at,
-//   } = req.decoded
-//   // console.log(account, name, mail, head);
-
-//   if (!account) {
-//     res.status(400).json({
-//       status: 'error',
-//       message: '驗證錯誤, 請重新登入',
-//     })
-//     return
-//   }
-
-//   const token = jwt.sign(
-//     {
-//       id,
-//       name,
-//       birthday,
-//       img,
-//       email,
-//       account,
-//       created_at,
-//       valid,
-//       gender,
-//       phone: user,
-//       permissions,
-//       updated_at,
-//     },
-//     secretKey,
-//     {
-//       expiresIn: '3y',
-//     }
-//   )
-
-//   res.status(200).json({
-//     status: 'success',
-//     message: '使用者於登入狀態',
-//     token,
-//   })
-// })
-
-// 加入 google 後測試
-router.get('/status', checkToken, (req, res) => {
-  let secretKey = 'xxx'
-
-  const {
-    id = '',
-    name = '',
-    birthday = '',
-    img = '',
-    address = '',
-    email = '',
-    account = '',
-    created_at = '',
-    valid = '',
-    gender = '',
-    phone: user = '',
-    permissions = '',
-    updated_at = '',
-  } = req.decoded
-
-  // console.log(account, name, email, img);
-
-  if (!account) {
-    res.status(400).json({
-      status: 'error',
-      message: '驗證錯誤, 請重新登入',
-    })
-    return
+  if (!id) {
+    return res.status(400).json({ message: 'ID 是必需的' })
   }
 
-  const token = jwt.sign(
-    {
-      id,
-      name,
-      address,
-      birthday,
-      img,
-      email,
-      account,
-      created_at,
-      valid,
-      gender,
-      phone: user,
-      permissions,
-      updated_at,
-    },
-    secretKey,
-    {
-      expiresIn: '3y',
-    }
+  // 使用 Sequelize 更新資料
+  const user = await User.update(
+    { name, phone, email, address, birthday, img }, // 要更新的欄位
+    { where: { id } } // 條件
   )
 
-  res.status(200).json({
-    status: 'success',
-    message: '使用者於登入狀態',
-    token,
-  })
-})
-
-// ben老師的登出
-router.get('/logout', checkToken, (req, res) => {
-  const { account, name, mail, head } = req.body
-  console.log('需要登出 ', account, name)
-
-  let token2 = req.get('Authorization')
-  token2 = token2.slice(7)
-
-  if (!account) {
-    res.status(400).json({
-      status: 'fail',
-      message: '登出失敗, 請稍後再試',
-    })
-    return
+  // 驗證更新是否成功
+  if (user[0] === 0) {
+    // 若 `user[0]` 為 0，表示沒有任何資料被更新
+    return res.status(404).json({ message: '找不到對應的使用者' })
   }
 
-  const token = jwt.sign(
-    {
-      id: undefined,
-      name: undefined,
-      birthday: undefined,
-      img: undefined,
-      email: undefined,
-      address: undefined,
-      account: undefined,
-      created_at: undefined,
-      valid: undefined,
-      phone: undefined,
-      permissions: undefined,
-      updated_at: undefined,
-    },
-    secretKey,
-    {
-      expiresIn: '-3y',
-    }
-  )
-
-  res.status(200).json({
-    status: 'success',
-    message: '登出成功',
-    token,
-  })
+  // 更新成功
+  return res.json({ message: '更改成功', data: user })
 })
-
-// ben 的 token 東西
-function checkToken(req, res, next) {
-  let token = req.get('Authorization')
-
-  if (token && token.indexOf('Bearer ') === 0) {
-    token = token.slice(7)
-    // 類似session的作法
-    // 不是很保險, 因為伺服器重啟blackList就會消失
-    // if(blackList.includes(token)){
-    //   return res.status(401).json({
-    //     status: "error",
-    //     message: "登入驗證失效, 請重新登入",
-    //   });
-    // }
-    jwt.verify(token, secretKey, (error, decoded) => {
-      if (error) {
-        res.status(401).json({
-          status: 'error',
-          message: '登入驗證失效, 請重新登入',
-        })
-        return
-      }
-      req.decoded = decoded
-
-      next()
-    })
-  } else {
-    console.log('查看: ', token)
-    res.status(401).json({
-      status: 'error',
-      message: '無驗證資料, 請重新登入',
-    })
-  }
-}
 
 // 使用者上傳圖片 upload.single('file')
 router.post('/upload', upload.single('file'), (req, res) => {
-  //console.log("後臺收到的東西 ",req.body.file); // 有找到東西
+  console.log('後臺收到的東西 ', req.body.file) // 有找到東西
   return res.status(200).json({ message: '後台 圖片上傳成功' })
 })
 
-// 使用者優惠券
-router.post('/coupon', (req, res) => {
-  const { id } = req.body
+// 使用者優惠券 (seqz 難改)
+router.get('/:id/coupon', async (req, res) => {
+  const id = getIdParam(req)
 
   // user_coupon (pl) 和 coupon (p)
   const query = `
-    SELECT p.*, pl.quantity
-FROM user_coupon pl
-JOIN Coupon p ON pl.coupon_id = p.id
-WHERE pl.user_id = ?
-  `
+      SELECT p.*, pl.quantity
+  FROM user_coupon pl
+  JOIN Coupon p ON pl.coupon_id = p.id
+  WHERE pl.user_id = ?
+    `
 
   connection.query(query, [id], (err, results) => {
     if (err) {
@@ -502,6 +320,8 @@ const Like_Query = (tableName, idField, userId, res) => {
     WHERE cl.user_id = ?
   `
 
+  console.log('有路過這裡')
+
   connection.query(query, [userId], (err, results) => {
     if (err) {
       console.error('查詢資料庫失敗:', err)
@@ -513,22 +333,22 @@ const Like_Query = (tableName, idField, userId, res) => {
 }
 
 // 產品按讚路由
-router.post('/product_like', jsonModdleware, (req, res) => {
-  const { id } = req.body
+router.get('/:id/product_like', (req, res) => {
+  const id = getIdParam(req)
   console.log('ooxxo', id)
   Like_Query('product', 'product_id', id, res)
 })
 
 // 課程按讚路由
-router.post('/course_like', (req, res) => {
-  const { id } = req.body
+router.get('/:id/course_like', (req, res) => {
+  const id = getIdParam(req)
   console.log('課程後台: ', id)
   Like_Query('course', 'course_id', id, res)
 })
 
 // 文章按讚路由
-router.post('/article_like', (req, res) => {
-  const { id } = req.body
+router.get('/:id/article_like', (req, res) => {
+  const id = getIdParam(req)
   console.log('收到的 ', id)
 
   // 文章的 target_type 需要特別處理
@@ -710,32 +530,27 @@ router.post('/email', jsonModdleware, function (req, res) {
 /////////////////
 
 // 使用者訂單查詢
-router.post('/order', jsonModdleware, function (req, res) {
-  const { id, name } = req.body
-  // console.log('搜尋到的使用者 ', id, name)
+router.get('/:id/order', async function (req, res) {
+  const id = getIdParam(req)
+  console.log('搜尋到的使用者 ', id)
 
-  const query = `SELECT * FROM order_list WHERE user_id = ?`
-
-  // 使用參數化查詢來防止 SQL 注入
-  connection.query(query, [id], (err, results) => {
-    if (err) {
-      console.error('查詢資料庫失敗:', err)
-      return res.status(500).json({ message: '查詢資料庫失敗' })
-    }
-
-    if (results.length === 0) {
-      // 如果沒有資料被找到，說明沒有符合條件的記錄
-      return res.status(404).json({ message: '沒有找到符合條件的記錄' })
-    }
-
-    // 將結果按 create_time 排序
-    // results.sort((a, b) => new Date(a.create_time) - new Date(b.create_time)) // 日期遠排到近
-    results.sort((a, b) => new Date(b.create_time) - new Date(a.create_time))
-
-    console.log('照日期排序: ', results)
-
-    return res.json(results) // 回傳排序後的查詢結果
+  // 搜尋使用者購物紀錄
+  const results = await Order_list.findAll({
+    where: {
+      user_id: id,
+    },
+    order: [['create_time', 'DESC']], // 按 create_time 由新到舊排序
   })
+
+  if (results.length === 0) {
+    // 如果沒有找到資料
+    return res.status(404).json({ message: '沒有找到符合條件的記錄' })
+  }
+
+  // console.log('東西: ', results)
+  // res.send(results)
+
+  return res.json({ status: 'success', data: { results } })
 })
 
 // 訂單細項表
@@ -935,6 +750,28 @@ router.post('/googleLogin', (req, res) => {
       })
     }
   )
+})
+
+// GET - 得到單筆資料(注意，有動態參數時要寫在GET區段最後面)
+router.get('/:id', authenticate, async function (req, res) {
+  // 轉為數字
+  const id = getIdParam(req)
+
+  console.log('後端取得: ', id)
+
+  // 檢查是否為授權會員，只有授權會員可以存取自己的資料
+  if (req.user.id !== id) {
+    return res.json({ status: 'error', message: '存取會員資料失敗' })
+  }
+
+  const user = await User.findByPk(id, {
+    raw: true, // 只需要資料表中資料
+  })
+
+  // 不回傳密碼
+  delete user.password
+
+  return res.json({ status: 'success', data: { user } })
 })
 
 export default router

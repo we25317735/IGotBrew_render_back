@@ -2,13 +2,14 @@ import mysql from 'mysql2'
 import 'dotenv/config.js' // 載入 .env
 
 // const connection = mysql.createConnection({
-//   host: 'igotbrew-mysql-we25317735-e743.e.aivencloud.com',
-//   port: 14329,
-//   user: 'avnadmin',
-//   password: 'AVNS_QhJoFswFimuN6CxlyIe',
-//   database: 'defaultdb',
+//   host: 'localhost',
+//   port: 3306,
+//   user: 'coffee',
+//   password: 'a12345',
+//   database: 'igotbrew',
 // })
 
+// aiven 資料庫
 const connection = mysql.createConnection({
   host: process.env.MYSQL_HOST,
   port: process.env.MYSQL_PORT,

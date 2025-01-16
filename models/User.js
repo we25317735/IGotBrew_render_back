@@ -15,6 +15,18 @@ export default async function (sequelize) {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      google_uid: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      line_uid: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      twitter_uid: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
       birthday: {
         type: DataTypes.STRING,
         allowNull: true,
