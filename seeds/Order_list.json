@@ -9,7 +9,7 @@
   "bill_type": 2,
   "total_amount": null,
   "create_time": "2024-08-27 23:44:05",
-  "user_id": 2,
+  "user_id": 56,
   "coupon_id": 0,
   "invoice_donation": "創世基金會",
   "order_info": "{\"orderId\":\"0a8763fa-53cf-4c6d-9706-3fd1ee387d70\",\"currency\":\"TWD\",\"amount\":1000,\"packages\":[{\"id\":\"c99abc79-3b29-4f40-8851-bc618ca57857\",\"amount\":1000,\"products\":[{\"id\":1,\"name\":\"測試商品1\",\"quantity\":500,\"price\":2}]}],\"options\":{\"display\":{\"locale\":\"zh_TW\"}}}"
@@ -56,7 +56,7 @@
   "bill_type": 2,
   "total_amount": 8877,
   "create_time": "2024-08-22 12:39:56",
-  "user_id": 7,
+  "user_id": 56,
   "coupon_id": 1,
   "invoice_donation": "陽光社會福利基金會",
   "cardnum": 77777777777777,
