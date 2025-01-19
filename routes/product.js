@@ -201,6 +201,7 @@ router.get('/limited-time', (req, res) => {
     }
   })
 })
+
 router.get('/hot-products', (req, res) => {
   const query = `
     SELECT p.*, SUM(od.product_quantity) AS total_sold

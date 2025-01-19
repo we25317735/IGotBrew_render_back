@@ -71,12 +71,14 @@ router.get('/relatedProducts', async (req, res) => {
 })
 
 router.get('/list', (req, res) => {
+  const sqlQuery = 'SELECT * FROM `article` WHERE valid = ?' // 使用佔位符
+
   connection.execute(
-    // 資料庫撈資料
-    'SELECT * FROM `Article` WHERE valid = 1',
+    sqlQuery,
+    [1], // 將參數傳遞給查詢，這裡 `1` 代表 valid 欄位的值
     (error, results) => {
       if (error) {
-        console.error('Database query error:', error)
+        console.error('Database query error:', error.message || error)
         return res.status(500).json({ message: '伺服器錯誤' })
       }
 
@@ -92,6 +94,28 @@ router.get('/list', (req, res) => {
       })
     }
   )
+
+  // connection.execute(
+  //   // 資料庫撈資料
+  //   'SELECT * FROM `Article` WHERE valid = 1',
+  //   (error, results) => {
+  //     if (error) {
+  //       console.error('Database query error:', error)
+  //       return res.status(500).json({ message: '伺服器錯誤' })
+  //     }
+
+  //     if (results.length === 0) {
+  //       return res.status(404).json({ message: '沒有文章' })
+  //     }
+
+  //     res.status(200).json({
+  //       status: 'success',
+  //       data: {
+  //         articles: results,
+  //       },
+  //     })
+  //   }
+  // )
 })
 
 router.get('/search', (req, res) => {
